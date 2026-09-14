@@ -1,0 +1,44 @@
+name: MFDesk - current release and two previous versions
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: mfdesk-release-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    if: github.repository == 'mfdesk/mfdesk.github.io'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+      - name: Test retention safety
+        run: node --test .github/scripts/release-maintenance.test.cjs
+      - name: Verify installer and refresh existing download metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/release-maintenance.cjs prepare
+      - name: Commit download metadata only
+        run: |
+          git add -- index.html index.rsc release.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Update MFDesk download metadata'
+            git push origin HEAD:main
+          fi
+      - name: Wait for working public download page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/release-maintenance.cjs wait-pages
+      - name: Keep current plus two previous releases (preserve git tags)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/release-maintenance.cjs prune
