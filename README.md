@@ -4,6 +4,7 @@ Publiczna strona prywatnego projektu pulpitu zdalnego MFDesk.
 
 - Strona: https://mfdesk.github.io/
 - Instalator Windows: [GitHub Releases](https://github.com/mfdesk/mfdesk.github.io/releases)
+- Android: [kafelek pobierania APK alfa](https://mfdesk.github.io/#android) — Android 12+, ARM64; telefon steruje Windows. Testy fizycznego telefonu są jeszcze przed nami.
 - [Prywatność](https://mfdesk.github.io/privacy/)
 - [Zasady używania i ograniczenia](https://mfdesk.github.io/terms/)
 
@@ -27,6 +28,10 @@ Testy bez sieci: `node --test .github/scripts/release-maintenance.test.cjs`.
 Można uruchomić workflow ręcznie w Actions (ponowienie po błędzie jest bezpieczne).
 Używa wyłącznie krótkotrwałego tokenu GitHub Actions dla tego repozytorium.
 Nie umieszczaj tokenu publikowania ani procedury usuwania w aplikacji desktopowej.
+
+Android używa osobnych tagów `android-v...`, plików APK oraz `android-release.json`.
+Nie uczestniczy w wyborze aktualizacji ani retencji Windows (`v...`, pliki EXE).
+Pobieranie jest publiczne i nie wymaga konta. Wydania alfa nie są oznaczane jako stabilne.
 
 `release.json` zawiera wyłącznie publiczne metadane pobierania. Przy ponownym
 eksporcie strony zsynchronizuj je oraz źródłowe `app/windows-release.ts` z aktualnym

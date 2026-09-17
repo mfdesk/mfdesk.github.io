@@ -37,6 +37,13 @@ test('drafts and unrelated releases remain untouched', () => {
   assert.equal(p.keep[0].tag_name, 'v2.3.5-beta.1');
   assert.equal(p.remove.length, 3);
 });
+
+test('Android prereleases cannot become Windows updates or retention candidates', () => {
+  const android = { id: 100, draft: false, prerelease: true, tag_name: 'android-v0.1.0-alpha.1', assets: [{ name: 'MFDesk-Android-0.1.0-alpha.1-arm64.apk' }] };
+  const baseline = plan(versions());
+  const withAndroid = plan([...versions(), android]);
+  assert.deepEqual(withAndroid, baseline);
+});
 test('unexpected asset, missing digest and duplicate release fail closed', () => {
   const rows = versions(); rows[0].assets.push({ name: 'private-backup.zip' }); assert.throws(()=>plan(rows));
   const missing = versions(); delete missing[0].assets[0].digest; assert.throws(()=>plan(missing));
