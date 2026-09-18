@@ -1,8 +1,8 @@
 {
-  "version": "0.1.0-alpha.14",
-  "url": "https://github.com/mfdesk/mfdesk.github.io/releases/download/android-v0.1.0-alpha.14/MFDesk-Android-0.1.0-alpha.14-arm64.apk",
-  "fileName": "MFDesk-Android-0.1.0-alpha.14-arm64.apk",
+  "version": "0.1.0-alpha.15",
+  "url": "https://github.com/mfdesk/mfdesk.github.io/releases/download/android-v0.1.0-alpha.15/MFDesk-Android-0.1.0-alpha.15-arm64.apk",
+  "fileName": "MFDesk-Android-0.1.0-alpha.15-arm64.apk",
   "bytes": 27952759,
-  "sha256": "2EC12814A143044C77A94CA72B930176462ADC4260CC41F881FA6A21FF82E748",
-  "notesUrl": "https://github.com/mfdesk/mfdesk.github.io/releases/tag/android-v0.1.0-alpha.14"
+  "sha256": "6696917B7498F03235269F95E6351012E709E03335D342DD562BA33CB506AB36",
+  "notesUrl": "https://github.com/mfdesk/mfdesk.github.io/releases/tag/android-v0.1.0-alpha.15"
 }
