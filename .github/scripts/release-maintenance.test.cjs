@@ -10,6 +10,38 @@ function release(v, id) {
   }] };
 }
 function versions() { return ['2.2.0-beta.5','2.3.0-beta.1','2.3.1-diagnostic.1','2.3.2-beta.1','2.3.3-beta.1','2.3.5-beta.1'].map((v,i)=> release(v,i+1)); }
+function withPortable(r) {
+  r.assets.push({...r.assets[0],name:r.assets[0].name.replace('Setup','Portable'),browser_download_url:r.assets[0].browser_download_url.replace('Setup','Portable')});
+  return r;
+}
+test('setup plus portable supported; all assets validated',()=>{
+  const r=withPortable(release('2.6.22-beta.1',500));
+  assert.equal(plan([r]).current,r);
+  r.assets[1].digest='invalid'; assert.throws(()=>plan([r]));
+});
+test('changed portable asset prevents deletion',async()=>{
+  const h=harness(versions().map(withPortable));
+  h.dependencies.readRelease=async id=>{const r=structuredClone(h.rows().find(r=>r.id===id));r.assets[1].size++;return r;};
+  await assert.rejects(prune(plan(h.rows()),h.dependencies),/changed/);
+  assert.equal(h.deleted.length,0);
+});
+test('both current files verified before retention',async()=>{
+  const h=harness(versions().map(withPortable)),verified=[];
+  h.dependencies.verify=async asset=>verified.push(asset.name);
+  await prune(plan(h.rows()),h.dependencies);
+  assert.equal(verified.length,2); assert(verified[1].startsWith('MFDesk-Portable-'));
+});
+test('portable default changes SSR and both RSC copies; preserves Android and unrelated sections',()=>{
+  const fs=require('fs'),{updatePage}=require('./windows-download.cjs');
+  const html=fs.readFileSync('index.html','utf8'),rsc=fs.readFileSync('index.rsc','utf8');
+  const old=JSON.parse(fs.readFileSync('release.json','utf8'));
+  const portable={...old,url:old.url.replace('Setup','Portable'),fileName:old.fileName.replace('Setup','Portable'),bytes:12345678,sha256:'B'.repeat(64)};
+  const next=updatePage(html,rsc,old,portable);
+  assert(next.html.includes('Pobierz dla Windows — portable'));
+  assert(next.html.includes(`href="${portable.url}"`)); assert(next.html.includes(`href="${old.url}"`));
+  assert.equal(next.html.match(/<article id="android"[\s\S]*?<\/article>/)[0],html.match(/<article id="android"[\s\S]*?<\/article>/)[0]);
+  assert.deepEqual(updatePage(next.html,next.rsc,old,portable),next,'idempotent');
+});
 function harness(rows = versions()) {
   let current = structuredClone(rows); const deleted = [];
   const dependencies = {

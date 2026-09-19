@@ -30,6 +30,7 @@ jobs:
       - name: Commit download metadata only
         run: |
           git add -- index.html index.rsc release.json
+          if [ -f portable-release.json ]; then git add -- portable-release.json; fi
           if ! git diff --cached --quiet; then
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Update MFDesk download metadata'
             git push origin HEAD:main

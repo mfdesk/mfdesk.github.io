@@ -25,13 +25,21 @@ function installer(release) {
   const name = `MFDesk-Setup-${release.tag_name.slice(1)}.exe`;
   const assets = release.assets;
   // Fail closed for unexpected attachments: do not remove unrelated user data.
-  if (!Array.isArray(assets) || assets.length !== 1 || assets[0].name !== name) throw Error(`Unexpected assets: ${release.tag_name}`);
-  const asset = assets[0];
+  const portableName = `MFDesk-Portable-${release.tag_name.slice(1)}.exe`;
+  if (!Array.isArray(assets) || assets.length < 1 || assets.length > 2 ||
+      assets.filter(a=>a.name===name).length!==1 || assets.some(a=>![name,portableName].includes(a.name)) ||
+      assets.filter(a=>a.name===portableName).length>1) throw Error(`Unexpected assets: ${release.tag_name}`);
+  for (const item of assets) validateAsset(release,item);
+  return assets.find(a=>a.name===name);
+}
+function validateAsset(release,asset) {
   if (asset.state !== 'uploaded' || !Number.isSafeInteger(asset.size) || asset.size <= 0 || asset.size > MAX_BYTES ||
       !/^sha256:[a-f0-9]{64}$/i.test(asset.digest || '') || asset.browser_download_url !==
-      `https://github.com/${REPOSITORY}/releases/download/${release.tag_name}/${name}`) throw Error(`Invalid installer: ${release.tag_name}`);
+      `https://github.com/${REPOSITORY}/releases/download/${release.tag_name}/${asset.name}`) throw Error(`Invalid installer: ${release.tag_name}`);
   return asset;
 }
+function portable(release) { installer(release); return release.assets.find(a=>a.name.startsWith('MFDesk-Portable-')); }
+function assets(release) { return [installer(release),portable(release)].filter(Boolean); }
 function plan(releases) {
   if (!Array.isArray(releases)) throw Error('Invalid catalog.');
   const candidates = releases.filter(r => r.draft === false && version(r.tag_name));
@@ -60,7 +68,8 @@ function replaceDownload(text, old, next) {
   }
   return updated;
 }
-function signature(p) { return JSON.stringify([...p.keep, ...p.remove].map(r => [r.id, r.tag_name, installer(r).digest, installer(r).size])); }
+function releaseSignature(r) { return [r.id,r.tag_name,assets(r).map(a=>[a.name,a.digest,a.size])]; }
+function signature(p) { return JSON.stringify([...p.keep, ...p.remove].map(releaseSignature)); }
 
 async function api(route, method = 'GET') {
   if (!/^\/(releases(?:[/?]|$)|pages\/builds)/.test(route)) throw Error('Unsupported API operation.');
@@ -112,6 +121,18 @@ async function verifyDownload(asset, fetchImpl = fetch) {
   throw Error('Too many installer redirects.');
 }
 function updateDownloadMetadata(current) {
+  const portableAsset = portable(current);
+  if (portableAsset || fs.existsSync('portable-release.json')) {
+    if (!portableAsset) throw Error('Portable asset missing from current release; refusing installer fallback.');
+    const metadata = asset => ({ version:current.tag_name.slice(1), url:asset.browser_download_url,
+      fileName:asset.name,bytes:asset.size,sha256:asset.digest.slice(7).toUpperCase() });
+    const setup=metadata(installer(current)), standalone=metadata(portableAsset);
+    const updated=require('./windows-download.cjs').updatePage(fs.readFileSync('index.html','utf8'),fs.readFileSync('index.rsc','utf8'),setup,standalone);
+    fs.writeFileSync('index.html',updated.html); fs.writeFileSync('index.rsc',updated.rsc);
+    fs.writeFileSync('release.json',JSON.stringify(setup,null,2)+'\n');
+    fs.writeFileSync('portable-release.json',JSON.stringify(standalone,null,2)+'\n');
+    return;
+  }
   const metadataPath = 'release.json';
   const old = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
   const asset = installer(current);
@@ -142,18 +163,17 @@ async function siteHasCurrent(p) {
   const response = await fetch('https://mfdesk.github.io/?release-check=' + Date.now(), { redirect: 'error', signal: AbortSignal.timeout(20000) });
   if (!response.ok) return false;
   const text = await response.text();
-  return text.includes(installer(p.current).browser_download_url) && text.includes(installer(p.current).digest.slice(7).toUpperCase()) &&
-    p.remove.every(r => !text.includes(installer(r).browser_download_url));
+  return assets(p.current).every(a=>text.includes(a.browser_download_url) && text.includes(a.digest.slice(7).toUpperCase())) &&
+    p.remove.every(r => assets(r).every(a=>!text.includes(a.browser_download_url)));
 }
 async function prune(p, { readPlan, verify, siteReady, readRelease, deleteRelease, log = console.log }) {
-  await verify(installer(p.current));
+  for (const asset of assets(p.current)) await verify(asset);
   if (!await siteReady(p)) throw Error('Live download page not ready; nothing deleted.');
   let expected = signature(p);
   for (const target of p.remove) {
     if (signature(await readPlan()) !== expected) throw Error('Catalog changed concurrently; stopped before next deletion.');
     const fresh = await readRelease(target.id);
-    if (fresh.id !== target.id || fresh.tag_name !== target.tag_name || installer(fresh).digest !== installer(target).digest ||
-        installer(fresh).size !== installer(target).size) throw Error('Release changed; stopped.');
+    if (JSON.stringify(releaseSignature(fresh))!==JSON.stringify(releaseSignature(target))) throw Error('Release changed; stopped.');
     log(`Delete release and installer: ${target.tag_name} (${target.id}); keep git tag.`);
     await deleteRelease(target.id); // DELETE release only, never git refs/tags, branches, account data or other repositories.
     p = { ...p, remove: p.remove.filter(r => r.id !== target.id) };
@@ -166,7 +186,7 @@ async function main(mode) {
   console.log(JSON.stringify({ keep: p.keep.map(r => r.tag_name), remove: p.remove.map(r => r.tag_name), download: p.current.tag_name }, null, 2));
   if (mode === 'plan') return;
   if (mode === 'prepare') {
-    await verifyDownload(installer(p.current));
+    for (const asset of assets(p.current)) await verifyDownload(asset);
     updateDownloadMetadata(p.current);
   } else if (mode === 'wait-pages') {
     if (await siteHasCurrent(p)) return;
@@ -183,5 +203,5 @@ async function main(mode) {
     if (remaining.remove.length) throw Error('Retention not completed.');
   } else throw Error('Use plan, prepare, wait-pages or prune.');
 }
-module.exports = { version, compare, installer, plan, replaceDownload, verifyDownload, prune };
+module.exports = { version, compare, installer, portable, plan, replaceDownload, verifyDownload, prune };
 if (require.main === module) main(process.argv[2] || 'plan').catch(error => { console.error(error.message); process.exitCode = 1; });
