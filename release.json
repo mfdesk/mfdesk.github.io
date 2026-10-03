@@ -1,7 +1,7 @@
 {
-  "version": "2.6.35-beta.1",
-  "url": "https://github.com/mfdesk/mfdesk.github.io/releases/download/v2.6.35-beta.1/MFDesk-Setup-2.6.35-beta.1.exe",
-  "fileName": "MFDesk-Setup-2.6.35-beta.1.exe",
-  "bytes": 165362539,
-  "sha256": "CEC8351E116BBA54B5F8A19F8B4D077657E5ED6EBAEF9AFF319A9208109C1495"
+  "version": "2.6.36-beta.1",
+  "url": "https://github.com/mfdesk/mfdesk.github.io/releases/download/v2.6.36-beta.1/MFDesk-Setup-2.6.36-beta.1.exe",
+  "fileName": "MFDesk-Setup-2.6.36-beta.1.exe",
+  "bytes": 165368171,
+  "sha256": "09A45D63E48403DEC2EA6C1923061660513F148234D2E5BB0819E6112A19DC7F"
 }
